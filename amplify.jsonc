@@ -1,0 +1,12 @@
+{
+  "name": "redo",
+  "env": {
+    "production": {},
+    "preview": {}
+  },
+  "deploy": {
+    "install": "npm ci",
+    "build": "npx @aws-amplifygen3/adapter-nextjs",
+    "output_directory": ".amplify"
+  }
+}
