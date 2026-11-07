@@ -1,18 +1,38 @@
 "use client";
 
-import { useState, useSyncExternalStore, type FormEvent } from "react";
-import { addTodo, getServerTodos, getTodos, subscribe, toggleTodo } from "./todo-store";
+import { useState, type FormEvent } from "react";
+import type { Todo } from "@/lib/todos";
 
-export default function TodoList() {
-  const todos = useSyncExternalStore(subscribe, getTodos, getServerTodos);
+export default function TodoList({ initialTodos }: { initialTodos: Todo[] }) {
+  const [todos, setTodos] = useState(initialTodos);
   const [text, setText] = useState("");
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = text.trim();
     if (!trimmed) return;
-    addTodo(trimmed);
     setText("");
+    const response = await fetch("/api/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: trimmed }),
+    });
+    if (!response.ok) return;
+    const created: Todo = await response.json();
+    setTodos((current) => [...current, created]);
+  }
+
+  async function handleToggle(id: string) {
+    const flip = (current: Todo[]) =>
+      current.map((todo) => (todo.id === id ? { ...todo, done: !todo.done } : todo));
+    setTodos(flip);
+    const response = await fetch(`/api/todos/${id}`, { method: "PATCH" }).catch(() => null);
+    if (!response?.ok) {
+      setTodos(flip);
+      return;
+    }
+    const updated: Todo = await response.json();
+    setTodos((current) => current.map((todo) => (todo.id === id ? updated : todo)));
   }
 
   return (
@@ -26,6 +46,7 @@ export default function TodoList() {
           value={text}
           onChange={(event) => setText(event.target.value)}
           placeholder="What needs doing?"
+          maxLength={500}
           className="flex-1 rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
         />
         <button
@@ -42,7 +63,7 @@ export default function TodoList() {
               <input
                 type="checkbox"
                 checked={todo.done}
-                onChange={() => toggleTodo(todo.id)}
+                onChange={() => handleToggle(todo.id)}
                 className="h-4 w-4"
               />
               <span className={todo.done ? "text-zinc-400 line-through" : ""}>{todo.text}</span>
